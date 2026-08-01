@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ULTRA GENESIS - 40s Evolution</title>
+    <style>
+        body, html { margin: 0; padding: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
+        canvas { display: block; }
+        #hud {
+            position: absolute; top: 10%; width: 100%; text-align: center;
+            color: #fff; font-size: 1.5rem; letter-spacing: 8px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            pointer-events: none; z-index: 10; transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+    <div id="hud">SYSTEM BOOT...</div>
+    <canvas id="canvas"></canvas>
+
+
+<script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const hud = document.getElementById('hud');
+
+
+let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+        let cx = width / 2;
+        let cy = height / 2;
+
+
+const numParticles = 1500; // Heavy density
+        let particles = [];
+        let currentShape = 'matrix';
+        let time = 0;
+        let fov = 350; // 3D Field of view
+
+
+// Utility Math
+        const random = (min, max) => Math.random() * (max - min) + min;
+
+
+class Particle {
+            constructor(i) {
+                this.index = i;
+                this.x = random(-width, width);
+                this.y = random(-height, height);
+                this.z = random(-500, 500);
+                
+                this.tx = this.x; // Target X
+                this.ty = this.y; // Target Y
+                this.tz = this.z; // Target Z
+                
+                this.r = 0; this.g = 255; this.b = 0; // Current Color
+                this.tr = 0; this.tg = 255; this.tb = 0; // Target Color
+                
+                this.size = random(1, 2.5);
+                this.char = String.fromCharCode(0x30A0 + random(0, 96));
+            }
+
+
+setTarget(x, y, z, r, g, b) {
+                this.tx = x; this.ty = y; this.tz = z;
+                this.tr = r; this.tg = g; this.tb = b;
+            }
+
+
+update(ease) {
+                // Smooth Lerp to target position
+                this.x += (this.tx - this.x) * ease;
+                this.y += (this.ty - this.y) * ease;
+                this.z += (this.tz - this.z) * ease;
+
+
+// Smooth Lerp to target color
+                this.r += (this.tr - this.r) * ease;
+                this.g += (this.tg - this.g) * ease;
+                this.b += (this.tb - this.b) * ease;
+            }
+
+
+draw() {
+                // 3D to 2D Projection
+                let scale = fov / (fov + this.z);
+                let x2d = cx + this.x * scale;
+                let y2d = cy + this.y * scale;
+
+
+if (scale < 0 || x2d < 0 || x2d > width || y2d < 0 || y2d > height) return;
+
+
+ctx.fillStyle = `rgb(${Math.floor(this.r)}, ${Math.floor(this.g)}, ${Math.floor(this.b)})`;
+                
+                if (currentShape === 'matrix') {
+                    ctx.font = `${14 * scale}px monospace`;
+                    ctx.fillText(this.char, x2d, y2d);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(x2d, y2d, this.size * scale, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+
+// Initialize
+        for (let i = 0; i < numParticles; i++) {
+            particles.push(new Particle(i));
+        }
+
+
+// --- SHAPE GENERATORS ---
+        function morphTo(shapeType) {
+            currentShape = shapeType;
+            let i = 0;
+
+
+particles.forEach((p) => {
+                let tx, ty, tz, tr, tg, tb;
+                let phi, theta, r;
+
+
+switch(shapeType) {
+                    case 'matrix': // Falling code
+                        tx = random(-cx, cx);
+                        ty = random(-cy * 2, cy * 2);
+                        tz = random(-200, 200);
+                        tr = 0; tg = 255; tb = 70;
+                        break;
+
+
+case 'swarm': // Chaotic sphere gathering
+                        r = random(50, 300);
+                        phi = Math.acos(random(-1, 1));
+                        theta = random(0, Math.PI * 2);
+                        tx = r * Math.sin(phi) * Math.cos(theta);
+                        ty = r * Math.sin(phi) * Math.sin(theta);
+                        tz = r * Math.cos(phi);
+                        tr = 255; tg = 100; tb = 0;
+                        break;
+
+
+case 'dna': // 3D Double Helix
+                        let angle = i * 0.05;
+                        r = 80;
+                        let offset = i % 2 === 0 ? 0 : Math.PI;
+                        tx = Math.cos(angle + offset) * r;
+                        ty = (i - numParticles/2) * 0.4;
+                        tz = Math.sin(angle + offset) * r;
+                        tr = 0; tg = 255; tb = 255;
+                        break;
+
+
+case 'torus': // Donut shape
+                        let u = random(0, Math.PI * 2);
+                        let v = random(0, Math.PI * 2);
+                        let R = 150; // Main radius
+                        let rTube = 60; // Tube radius
+                        tx = (R + rTube * Math.cos(v)) * Math.cos(u);
+                        ty = (R + rTube * Math.cos(v)) * Math.sin(u);
+                        tz = rTube * Math.sin(v);
+                        tr = 255; tg = 0; tb = 255;
+                        break;
+
+
+case 'infinity': // Lemniscate / Infinity Loop
+                        let t = i * 0.01;
+                        let scaleInf = 200;
+                        tx = (scaleInf * Math.cos(t)) / (1 + Math.sin(t)**2);
+                        ty = (scaleInf * Math.cos(t) * Math.sin(t)) / (1 + Math.sin(t)**2);
+                        tz = Math.sin(i) * 50;
+                        tr = 0; tg = 150; tb = 255;
+                        break;
+
+
+case 'cube': // 3D Cube Shell
+                        let side = i % 6;
+                        let s = 150;
+                        let a = random(-s, s);
+                        let b = random(-s, s);
+                        if(side==0) { tx=a; ty=b; tz=s; }
+                        if(side==1) { tx=a; ty=b; tz=-s; }
+                        if(side==2) { tx=a; ty=s; tz=b; }
+                        if(side==3) { tx=a; ty=-s; tz=b; }
+                        if(side==4) { tx=s; ty=a; tz=b; }
+                        if(side==5) { tx=-s; ty=a; tz=b; }
+                        tr = 255; tg = 255; tb = 0;
+                        break;
+                    
+                    case 'sphere': // Hollow Sphere
+                        phi = Math.acos(-1 + (2 * i) / numParticles);
+                        theta = Math.sqrt(numParticles * Math.PI) * phi;
+                        r = 200;
+                        tx = r * Math.cos(theta) * Math.sin(phi);
+                        ty = r * Math.sin(theta) * Math.sin(phi);
+                        tz = r * Math.cos(phi);
+                        tr = 100; tg = 255; tb = 100;
+                        break;
+
+
+case 'brain': // Two Hemispheres Neural
+                        phi = Math.acos(-1 + (2 * i) / numParticles);
+                        theta = Math.sqrt(numParticles * Math.PI) * phi;
+                        r = 160 + random(-10, 10);
+                        let hemi = (i % 2 === 0 ? 1 : -1) * 40; // Split brain
+                        tx = hemi + r * Math.cos(theta) * Math.sin(phi);
+                        ty = r * Math.cos(phi) * 0.8;
+                        tz = r * Math.sin(theta) * Math.sin(phi);
+                        tr = 255; tg = 50; tb = 150;
+                        break;
+
+
+case 'eye': // Giant cosmic eye
+                        let eyeR = random(0, 250);
+                        let eyeA = random(0, Math.PI * 2);
+                        tx = eyeR * Math.cos(eyeA);
+                        ty = (eyeR * Math.sin(eyeA)) * 0.4; // Squashed vertically
+                        tz = random(-20, 20);
+                        if (eyeR < 60) { tr = 0; tg = 0; tb = 0; } // Pupil
+                        else { tr = 0; tg = 255; tb = 255; } // Iris
+                        break;
+
+
+case 'galaxy': // Spiral Galaxy
+                        let galArm = i % 4;
+                        let galR = random(20, 400);
+                        let galTheta = (galR * 0.02) + (galArm * (Math.PI / 2));
+                        tx = galR * Math.cos(galTheta);
+                        ty = random(-10, 10); // Flattened disc
+                        tz = galR * Math.sin(galTheta);
+                        tr = 200 + random(-50, 50); tg = 150; tb = 255;
+                        break;
+                }
+                
+                p.setTarget(tx, ty, tz, tr, tg, tb);
+                i++;
+            });
+        }
+
+
+// --- TIMELINE SEQUENCE ---
+        const sequence = [
+            { time: 0, shape: 'matrix', text: 'INITIALIZING MATRIX...' },
+            { time: 4000, shape: 'swarm', text: 'GATHERING QUANTUM DATA...' },
+            { time: 8000, shape: 'dna', text: 'SYNTHESIZING DIGITAL DNA...' },
+            { time: 12000, shape: 'torus', text: 'IGNITING ENERGY REACTOR...' },
+            { time: 16000, shape: 'infinity', text: 'CALCULATING INFINITE PROBABILITIES...' },
+            { time: 20000, shape: 'cube', text: 'CONSTRUCTING CYBER CORE...' },
+            { time: 24000, shape: 'sphere', text: 'ACHIEVING GEOMETRIC HARMONY...' },
+            { time: 28000, shape: 'matrix', text: 'PULSE STABILIZING...' }, // Quick matrix rain flash
+            { time: 32000, shape: 'brain', text: 'AWAKENING ARTIFICIAL NEURAL NETWORK...' },
+            { time: 36000, shape: 'eye', text: 'OMNISCIENCE ACHIEVED.' },
+            { time: 40000, shape: 'galaxy', text: 'EXPANDING INTO THE MULTIVERSE...' },
+            { time: 45000, shape: 'galaxy', text: '' } // Clear text
+        ];
+
+
+let seqIndex = 0;
+
+
+function runTimeline(elapsed) {
+            if (seqIndex < sequence.length && elapsed >= sequence[seqIndex].time) {
+                morphTo(sequence[seqIndex].shape);
+                
+                if(sequence[seqIndex].text !== '') {
+                    hud.style.opacity = 0;
+                    setTimeout(() => {
+                        hud.style.color = `rgb(${particles[0].tr}, ${particles[0].tg}, ${particles[0].tb})`;
+                        hud.innerText = sequence[seqIndex].text;
+                        hud.style.opacity = 1;
+                    }, 500); // Fade effect for text
+                } else {
+                    hud.style.opacity = 0;
+                }
+                seqIndex++;
+            }
+        }
+
+
+// --- ANIMATION LOOP ---
+        let startTime = Date.now();
+
+
+function animate() {
+            let elapsed = Date.now() - startTime;
+            time += 0.01;
+
+
+runTimeline(elapsed);
+
+
+// Cinematic fade trail
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fillRect(0, 0, width, height);
+
+
+ctx.globalCompositeOperation = 'lighter'; // Neon Glow Effect
+
+
+let rotationSpeed = 0.005;
+
+
+particles.forEach((p, index) => {
+                // Apply subtle constant rotation based on shape
+                if (currentShape !== 'matrix') {
+                    let rx = p.tx * Math.cos(rotationSpeed) - p.tz * Math.sin(rotationSpeed);
+                    let rz = p.tx * Math.sin(rotationSpeed) + p.tz * Math.cos(rotationSpeed);
+                    p.tx = rx;
+                    p.tz = rz;
+                    
+                    // Extra Y-axis wobble for Torus and DNA
+                    if (currentShape === 'torus' || currentShape === 'dna') {
+                        p.ty += Math.sin(time * 5 + index) * 0.5;
+                    }
+                } else {
+                    // Matrix falling logic
+                    p.ty += random(5, 15);
+                    if (p.ty > height) p.ty = -height;
+                }
+
+
+// Morphing speed easing
+                let ease = (currentShape === 'matrix' && elapsed < 4000) ? 1 : 0.03;
+                p.update(ease);
+                p.draw();
+            });
+
+
+// Draw Plexus Lines (Neural connections) only for Brain shape
+            if (currentShape === 'brain') {
+                ctx.lineWidth = 0.5;
+                for (let i = 0; i < 300; i++) { // Limit iterations for performance
+                    let p1 = particles[i];
+                    for (let j = i + 1; j < 300; j++) {
+                        let p2 = particles[j];
+                        let dist = Math.hypot(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
+                        if (dist < 35) {
+                            let scale1 = fov / (fov + p1.z);
+                            let scale2 = fov / (fov + p2.z);
+                            ctx.strokeStyle = `rgba(255, 50, 150, ${1 - dist/35})`;
+                            ctx.beginPath();
+                            ctx.moveTo(cx + p1.x * scale1, cy + p1.y * scale1);
+                            ctx.lineTo(cx + p2.x * scale2, cy + p2.y * scale2);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+
+requestAnimationFrame(animate);
+        }
+
+
+window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            cx = width / 2;
+            cy = height / 2;
+        });
+
+
+// Start Matrix immediately
+        morphTo('matrix');
+        animate();
+
+
+</script>
+</body>
+</html>
+
